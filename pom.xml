@@ -17,7 +17,7 @@
 	<version>1.2.0.Final</version>
 
 	<properties>
-		<keycloak.version>3.4.1.Final</keycloak.version>
+		<keycloak.version>3.4.2.Final</keycloak.version>
 		<java.version>1.8</java.version>
 	</properties>
 
