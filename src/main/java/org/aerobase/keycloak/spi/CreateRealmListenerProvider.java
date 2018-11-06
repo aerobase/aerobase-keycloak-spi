@@ -27,6 +27,8 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 	protected static final Logger logger = Logger.getLogger(AdminRoot.class);
 
 	private static final String REALM_TEMPLATE = "realm.json";
+	private static final String CLIENT_SUFFIX = "client";
+	private static final String CLIENT_SEPARATOR = "-";
 
 	private KeycloakSession session;
 	private RealmModel masterRealm;
@@ -40,7 +42,7 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 	public void onEvent(Event event) {
 		// Register events only
 		if (event.getType() != EventType.REGISTER && event.getType() != EventType.IDENTITY_PROVIDER_FIRST_LOGIN) {
-			return;	
+			return;
 		}
 
 		String realmName = session.getContext().getRealm().getName();
@@ -63,9 +65,19 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 		String newRealmName = toRealmName(newUser);
 		rep.setRealm(newRealmName);
 
-		logger.debugv("importRealm: {0}", rep.getRealm());
+		RealmModel realm = session.realms().getRealmByName(newRealmName);
+		// Double check realm doesn't exists
+		if (realm == null) {
+			logger.debugv("importRealm: {0}", rep.getRealm());
+			importRealm(rep, auth, newUser, newRealmName);
+		}
+	}
 
-		importRealm(rep, auth, newUser, newRealmName);
+	private void createClientIfAbsent(RealmModel realm) {
+		@SuppressWarnings("unused")
+		String clientName = realm.getName() + CLIENT_SEPARATOR + CLIENT_SUFFIX;
+		// ClientModel client = session.realms().getClientByClientId(clientName, realm);
+		// TODO - Create default client for realm
 	}
 
 	@Override
@@ -84,13 +96,13 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 		}
 
 		ClientModel realmAdminApp = newRealm.getMasterAdminClient();
-		
+
 		// Grant master admin to new realm resources
 		for (String r : AdminRoles.ALL_REALM_ROLES) {
 			RoleModel role = realmAdminApp.getRole(r);
 			auth.getUser().grantRole(role);
 		}
-		
+
 		// Grant new user to new realm resources
 		for (String r : AdminRoles.ALL_REALM_ROLES) {
 			RoleModel role = realmAdminApp.getRole(r);
@@ -123,8 +135,6 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 	public void importRealm(RealmRepresentation rep, AdminAuth auth, UserModel newUser, String from) {
 		boolean exists = false;
 		try {
-			// session.getTransactionManager().begin();
-
 			try {
 				RealmManager manager = new RealmManager(session);
 				manager.setContextPath(session.getContext().getContextPath());
@@ -141,6 +151,7 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 				if (!exists) {
 					RealmModel realm = manager.importRealm(rep);
 					grantPermissionsToRealmCreator(realm, auth, newUser);
+					createClientIfAbsent(realm);
 					ServicesLogger.LOGGER.importedRealm(realm.getName(), from);
 				}
 			} catch (Throwable t) {

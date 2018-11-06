@@ -15,7 +15,7 @@
 	<artifactId>aerobase-keycloak-spi</artifactId>
 	<name>AeroBase Addons to keycloak services</name>
 	<version>2.0.0.Final</version>
- 	<packaging>jar</packaging>
+ 	<packaging>ejb</packaging>
  	
 	<properties>
 	    <keycloak.version>4.5.0.Final</keycloak.version>
