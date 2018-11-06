@@ -2,7 +2,6 @@ package org.aerobase.keycloak.spi;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -14,16 +13,14 @@ import org.keycloak.events.admin.AdminEvent;
 import org.keycloak.models.AdminRoles;
 import org.keycloak.models.ClientModel;
 import org.keycloak.models.KeycloakSession;
-import org.keycloak.models.ModelDuplicateException;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.RoleModel;
 import org.keycloak.models.UserModel;
-import org.keycloak.policy.PasswordPolicyNotMetException;
 import org.keycloak.representations.idm.RealmRepresentation;
+import org.keycloak.services.ServicesLogger;
 import org.keycloak.services.managers.RealmManager;
 import org.keycloak.services.resources.admin.AdminAuth;
 import org.keycloak.services.resources.admin.AdminRoot;
-import org.keycloak.services.resources.admin.permissions.AdminPermissions;
 import org.keycloak.util.JsonSerialization;
 
 public class CreateRealmListenerProvider implements EventListenerProvider {
@@ -43,7 +40,7 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 	public void onEvent(Event event) {
 		// Register events only
 		if (event.getType() != EventType.REGISTER && event.getType() != EventType.IDENTITY_PROVIDER_FIRST_LOGIN) {
-			return;
+			return;	
 		}
 
 		String realmName = session.getContext().getRealm().getName();
@@ -53,39 +50,22 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 			return;
 		}
 
-		// Create New Realm
-		RealmManager realmManager = new RealmManager(session);
-		realmManager.setContextPath(session.getContext().getContextPath());
-
 		// Prepare AdminAuth
 		AdminAuth auth = new AdminAuth(masterRealm, null, session.users().getUserByUsername("admin", masterRealm),
 				session.getContext().getClient());
-
-		// Double check rules
-		AdminPermissions.realms(session, auth).requireCreateRealm();
 
 		// Import realm first
 		RealmRepresentation rep = loadJson(getClass().getResourceAsStream("/" + REALM_TEMPLATE),
 				RealmRepresentation.class);
 
 		// Replace strings if exists
-		rep.setRealm(toRealmName(session.users().getUserById(event.getUserId(), masterRealm)));
+		UserModel newUser = session.users().getUserById(event.getUserId(), masterRealm);
+		String newRealmName = toRealmName(newUser);
+		rep.setRealm(newRealmName);
 
 		logger.debugv("importRealm: {0}", rep.getRealm());
 
-		try {
-			RealmModel realm = realmManager.importRealm(rep);
-			grantPermissionsToRealmCreator(realm, auth);
-
-			URI location = AdminRoot.realmsUrl(session.getContext().getUri()).path(realm.getName()).build();
-			logger.debugv("imported realm success, sending back: {0}", location.toString());
-		} catch (ModelDuplicateException e) {
-			logger.error("Conflict detected", e);
-		} catch (PasswordPolicyNotMetException e) {
-			logger.error("Password policy not met for user " + e.getUsername(), e);
-			if (session.getTransactionManager().isActive())
-				session.getTransactionManager().setRollbackOnly();
-		}
+		importRealm(rep, auth, newUser, newRealmName);
 	}
 
 	@Override
@@ -98,15 +78,23 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 		// Assume this implementation just ignores admin events
 	}
 
-	private void grantPermissionsToRealmCreator(RealmModel realm, AdminAuth auth) {
+	private void grantPermissionsToRealmCreator(RealmModel newRealm, AdminAuth auth, UserModel newUser) {
 		if (auth.hasRealmRole(AdminRoles.ADMIN)) {
 			return;
 		}
 
-		ClientModel realmAdminApp = realm.getMasterAdminClient();
+		ClientModel realmAdminApp = newRealm.getMasterAdminClient();
+		
+		// Grant master admin to new realm resources
 		for (String r : AdminRoles.ALL_REALM_ROLES) {
 			RoleModel role = realmAdminApp.getRole(r);
 			auth.getUser().grantRole(role);
+		}
+		
+		// Grant new user to new realm resources
+		for (String r : AdminRoles.ALL_REALM_ROLES) {
+			RoleModel role = realmAdminApp.getRole(r);
+			newUser.grantRole(role);
 		}
 	}
 
@@ -129,6 +117,39 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 			Matcher matcher = pattern.matcher(toMatch);
 
 			return matcher.replaceAll("-").toLowerCase();
+		}
+	}
+
+	public void importRealm(RealmRepresentation rep, AdminAuth auth, UserModel newUser, String from) {
+		boolean exists = false;
+		try {
+			// session.getTransactionManager().begin();
+
+			try {
+				RealmManager manager = new RealmManager(session);
+				manager.setContextPath(session.getContext().getContextPath());
+
+				if (rep.getId() != null && manager.getRealm(rep.getId()) != null) {
+					ServicesLogger.LOGGER.realmExists(rep.getRealm(), from);
+					exists = true;
+				}
+
+				if (manager.getRealmByName(rep.getRealm()) != null) {
+					ServicesLogger.LOGGER.realmExists(rep.getRealm(), from);
+					exists = true;
+				}
+				if (!exists) {
+					RealmModel realm = manager.importRealm(rep);
+					grantPermissionsToRealmCreator(realm, auth, newUser);
+					ServicesLogger.LOGGER.importedRealm(realm.getName(), from);
+				}
+			} catch (Throwable t) {
+				if (!exists) {
+					ServicesLogger.LOGGER.unableToImportRealm(t, rep.getRealm(), from);
+				}
+			}
+		} catch (Throwable t) {
+			ServicesLogger.LOGGER.unableToImportRealm(t, rep.getRealm(), from);
 		}
 	}
 }
