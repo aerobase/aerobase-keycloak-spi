@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.jboss.logging.Logger;
 import org.keycloak.events.Event;
@@ -22,6 +24,8 @@ import org.keycloak.services.managers.RealmManager;
 import org.keycloak.services.resources.admin.AdminAuth;
 import org.keycloak.services.resources.admin.AdminRoot;
 import org.keycloak.util.JsonSerialization;
+
+import com.google.common.net.InternetDomainName;
 
 public class CreateRealmListenerProvider implements EventListenerProvider {
 	protected static final Logger logger = Logger.getLogger(AdminRoot.class);
@@ -74,10 +78,27 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 	}
 
 	private void createClientIfAbsent(RealmModel realm) {
-		@SuppressWarnings("unused")
 		String clientName = realm.getName() + CLIENT_SEPARATOR + CLIENT_SUFFIX;
-		// ClientModel client = session.realms().getClientByClientId(clientName, realm);
-		// TODO - Create default client for realm
+
+		// Create default client for realm
+		ClientModel client = session.realms().getClientByClientId(clientName, realm);
+		if (client == null) {
+			InternetDomainName domainName = InternetDomainName
+					.from(session.getContext().getUri().getBaseUri().getHost());
+			String topDomain = domainName.topPrivateDomain().toString();
+			client = realm.addClient(clientName, clientName);
+
+			client.setEnabled(true);
+
+			client.setRootUrl(
+					session.getContext().getUri().getBaseUri().getScheme() + "://" + realm.getName() + "." + topDomain);
+			client.setRedirectUris(Stream.of("/*").collect(Collectors.toSet()));
+			client.setBaseUrl("/");
+
+			client.setStandardFlowEnabled(true);
+			client.setPublicClient(true);
+			client.setWebOrigins(Stream.of("*").collect(Collectors.toSet()));
+		}
 	}
 
 	@Override
