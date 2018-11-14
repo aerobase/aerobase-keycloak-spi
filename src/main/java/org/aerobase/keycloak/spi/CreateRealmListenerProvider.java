@@ -175,7 +175,11 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 	}
 
 	public String toRealmName(UserModel user) {
-		return AccountNameMatcher.matches(user.getUsername());
+		return toRealmName(user.getUsername());
+	}
+
+	public static String toRealmName(String user) {
+		return AccountNameMatcher.matches(user);
 	}
 
 	private static final class AccountNameMatcher {
