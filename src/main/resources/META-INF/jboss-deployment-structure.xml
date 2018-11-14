@@ -8,6 +8,7 @@
         	<module name="org.keycloak.keycloak-server-spi"/>
         	<module name="org.keycloak.keycloak-services"/>
         	<module name="com.google.guava"/>
+        	<module name="org.apache.commons.io"/>
         
 		</dependencies>
 	</deployment>

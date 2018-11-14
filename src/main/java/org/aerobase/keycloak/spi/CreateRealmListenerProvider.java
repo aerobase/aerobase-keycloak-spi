@@ -1,13 +1,18 @@
 package org.aerobase.keycloak.spi;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.apache.commons.io.FileUtils;
 import org.jboss.logging.Logger;
+import org.keycloak.Config;
 import org.keycloak.events.Event;
 import org.keycloak.events.EventListenerProvider;
 import org.keycloak.events.EventType;
@@ -33,6 +38,9 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 	private static final String REALM_TEMPLATE = "realm.json";
 	private static final String CLIENT_SUFFIX = "client";
 	private static final String CLIENT_SEPARATOR = "-";
+	private static final String DEFAULT_THEMES_DIR_NAME = "themes";
+	private static final String DEFAULT_THEME_LOGIN_NAME = "login";
+	private static final String DEFAULT_AEROBASE_THEME_NAME = "aerobase";
 
 	private KeycloakSession session;
 	private RealmModel masterRealm;
@@ -68,12 +76,16 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 		UserModel newUser = session.users().getUserById(event.getUserId(), masterRealm);
 		String newRealmName = toRealmName(newUser);
 		rep.setRealm(newRealmName);
+		rep.setLoginTheme(newRealmName);
 
 		RealmModel realm = session.realms().getRealmByName(newRealmName);
 		// Double check realm doesn't exists
 		if (realm == null) {
 			logger.debugv("importRealm: {0}", rep.getRealm());
 			importRealm(rep, auth, newUser, newRealmName);
+
+			// Create default realm login theme and directory
+			createDefaultRealm(rep);
 		}
 	}
 
@@ -98,6 +110,29 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 			client.setStandardFlowEnabled(true);
 			client.setPublicClient(true);
 			client.setWebOrigins(Stream.of("*").collect(Collectors.toSet()));
+		}
+	}
+
+	private void createDefaultRealm(RealmRepresentation rep) {
+		String themesPath = Config.scope("theme").get("dir",
+				System.getProperty("jboss.home.dir") + File.separator + DEFAULT_THEMES_DIR_NAME);
+
+		File aerobaseLoginThemePath = new File(
+				themesPath + File.separator + DEFAULT_AEROBASE_THEME_NAME + File.separator + DEFAULT_THEME_LOGIN_NAME);
+
+		if (!Files.exists(new File(themesPath).toPath())) {
+			logger.warnv("unable to file system path : {0}", themesPath);
+		}
+
+		String themePath = themesPath + File.separator + rep.getRealm();
+		try {
+			// Create parent theme directory
+			Path newTheme = Files.createDirectory(new File(themePath).toPath());
+			// Copy login theme from aerobase to new realm
+			FileUtils.copyDirectory(aerobaseLoginThemePath,
+					new File(newTheme.toString() + File.separator + DEFAULT_THEME_LOGIN_NAME), false);
+		} catch (IOException e) {
+			logger.warnv("unable to create system path : {0}", themePath);
 		}
 	}
 
