@@ -72,8 +72,12 @@ public class ExtendingThemeManager extends org.keycloak.theme.ExtendingThemeMana
 		// Exclude theme (based on type) if missing from original list
 		Set<String> pThemes = globalThemes.stream().filter(theme -> themes.contains(theme)).collect(Collectors.toSet());
 
+		// Realm for user is relevant when login from master realm using realm user.
+		// Realm name is relevant when login directly from realm
 		if (themes.contains(realmForUser)) {
 			pThemes.add(realmForUser);
+		} else if (themes.contains(realmName)) {
+			pThemes.add(realmName);
 		}
 
 		return pThemes;

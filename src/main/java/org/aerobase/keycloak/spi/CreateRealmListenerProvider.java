@@ -77,6 +77,13 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 		String newRealmName = toRealmName(newUser);
 		rep.setRealm(newRealmName);
 		rep.setLoginTheme(newRealmName);
+		rep.setDisplayName(newRealmName);
+		rep.setDisplayNameHtml(newRealmName);
+		rep.setRegistrationAllowed(true);
+		rep.setRegistrationEmailAsUsername(true);
+		rep.setResetPasswordAllowed(true);
+		rep.setRememberMe(true);
+		rep.setVerifyEmail(true);
 
 		RealmModel realm = session.realms().getRealmByName(newRealmName);
 		// Double check realm doesn't exists
