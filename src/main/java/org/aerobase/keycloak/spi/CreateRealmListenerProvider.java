@@ -61,6 +61,7 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 
 		// Only master realm are supported on this event
 		if (!masterRealm.getName().equals(realmName)) {
+			logger.debugv("Only master realm is pormited for this event: {0}", realmName);
 			return;
 		}
 
@@ -73,7 +74,7 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 				RealmRepresentation.class);
 
 		// Replace strings if exists
-		UserModel newUser = session.users().getUserById(event.getUserId(), masterRealm);
+		UserModel newUser = session.userStorageManager().getUserById(event.getUserId(), masterRealm);
 		String newRealmName = toRealmName(newUser);
 		rep.setRealm(newRealmName);
 		rep.setLoginTheme(newRealmName);
@@ -113,6 +114,7 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 					session.getContext().getUri().getBaseUri().getScheme() + "://" + realm.getName() + "." + topDomain);
 			client.setRedirectUris(Stream.of("/*").collect(Collectors.toSet()));
 			client.setBaseUrl("/");
+			client.setManagementUrl("/");
 
 			client.setStandardFlowEnabled(true);
 			client.setPublicClient(true);
