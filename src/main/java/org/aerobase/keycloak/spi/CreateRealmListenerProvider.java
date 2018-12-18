@@ -26,7 +26,6 @@ import org.keycloak.models.UserModel;
 import org.keycloak.representations.idm.RealmRepresentation;
 import org.keycloak.services.ServicesLogger;
 import org.keycloak.services.managers.RealmManager;
-import org.keycloak.services.resources.admin.AdminAuth;
 import org.keycloak.services.resources.admin.AdminRoot;
 import org.keycloak.util.JsonSerialization;
 
@@ -66,8 +65,7 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 		}
 
 		// Prepare AdminAuth
-		AdminAuth auth = new AdminAuth(masterRealm, null, session.users().getUserByUsername("admin", masterRealm),
-				session.getContext().getClient());
+		UserModel masterAdmin = session.users().getUserByUsername("admin", masterRealm);
 
 		// Import realm first
 		RealmRepresentation rep = loadJson(getClass().getResourceAsStream("/" + REALM_TEMPLATE),
@@ -90,7 +88,7 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 		// Double check realm doesn't exists
 		if (realm == null) {
 			logger.debugv("importRealm: {0}", rep.getRealm());
-			importRealm(rep, auth, newUser, newRealmName);
+			importRealm(rep, newUser, masterAdmin, newRealmName);
 
 			// Create default realm login theme and directory
 			createDefaultRealm(rep);
@@ -155,22 +153,18 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 		// Assume this implementation just ignores admin events
 	}
 
-	private void grantPermissionsToRealmCreator(RealmModel newRealm, AdminAuth auth, UserModel newUser) {
-		if (auth.hasRealmRole(AdminRoles.ADMIN)) {
-			return;
-		}
-
+	private void grantPermissionsToRealmCreator(RealmModel newRealm, UserModel newUser, UserModel masterAdmin) {
 		ClientModel realmAdminApp = newRealm.getMasterAdminClient();
-
-		// Grant master admin to new realm resources
+		logger.info("Master realm name: " + realmAdminApp.getName());
+		
 		for (String r : AdminRoles.ALL_REALM_ROLES) {
 			RoleModel role = realmAdminApp.getRole(r);
-			auth.getUser().grantRole(role);
-		}
-
-		// Grant new user to new realm resources
-		for (String r : AdminRoles.ALL_REALM_ROLES) {
-			RoleModel role = realmAdminApp.getRole(r);
+			logger.info("Master realm role name: " + role == null? "NULL": role.getName());
+		
+			// Grant master admin to new realm resources
+			masterAdmin.grantRole(role);
+			
+			// Grant new user to new realm resources
 			newUser.grantRole(role);
 		}
 	}
@@ -201,7 +195,7 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 		}
 	}
 
-	public void importRealm(RealmRepresentation rep, AdminAuth auth, UserModel newUser, String from) {
+	public void importRealm(RealmRepresentation rep, UserModel newUser, UserModel masterAdmin, String from) {
 		boolean exists = false;
 		try {
 			try {
@@ -222,7 +216,7 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 					
 					// Reload realm from storage.
 					RealmModel refresedRealm = session.realmLocalStorage().getRealmByName(realm.getName());
-					grantPermissionsToRealmCreator(refresedRealm, auth, newUser);
+					grantPermissionsToRealmCreator(refresedRealm, newUser, masterAdmin);
 					createClientIfAbsent(refresedRealm);
 					ServicesLogger.LOGGER.importedRealm(refresedRealm.getName(), from);
 				}
