@@ -155,12 +155,12 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 		// Assume this implementation just ignores admin events
 	}
 
-	private void grantPermissionsToRealmCreator(RealmModel newRealm, AdminAuth auth, UserModel newUser) {
+	private void grantPermissionsToRealmCreator(AdminAuth auth, UserModel newUser) {
 		if (auth.hasRealmRole(AdminRoles.ADMIN)) {
 			return;
 		}
 
-		ClientModel realmAdminApp = newRealm.getMasterAdminClient();
+		ClientModel realmAdminApp = masterRealm.getMasterAdminClient();
 
 		// Grant master admin to new realm resources
 		for (String r : AdminRoles.ALL_REALM_ROLES) {
@@ -219,7 +219,7 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 				}
 				if (!exists) {
 					RealmModel realm = manager.importRealm(rep);
-					grantPermissionsToRealmCreator(realm, auth, newUser);
+					grantPermissionsToRealmCreator(auth, newUser);
 					createClientIfAbsent(realm);
 					ServicesLogger.LOGGER.importedRealm(realm.getName(), from);
 				}
