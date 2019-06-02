@@ -31,15 +31,12 @@ public class IDPLinkListenerProvider implements EventListenerProvider {
 			return;
 		}
 
-		System.out.println(System.currentTimeMillis());
 		// Prepare getUser
 		UserModel loggedinUser = session.users().getUserById(event.getUserId(), session.getContext().getRealm());
 		String newLink = event.getDetails().get(PROVIDER_KEY);
 
 		String userIdpLink = loggedinUser.getFirstAttribute(PROVIDER_LINKS_KEY);
 		loggedinUser.setSingleAttribute(PROVIDER_LINKS_KEY, putIfAbsent(userIdpLink, newLink).toString());
-
-		System.out.println(System.currentTimeMillis());
 	}
 
 	private ArrayList<String> putIfAbsent(String userIdpLink, String newLink) {
