@@ -53,13 +53,13 @@ public class ExtendingThemeManager extends org.keycloak.theme.ExtendingThemeMana
 		String realmName = session.getContext().getRealm().getName();
 		String realmForUser = null;
 
-		AccessToken token = getTokenDataFromBearer(session.getContext().getRequestHeaders()).orNull();
-		if (token != null) {
-			realmForUser = CreateRealmListenerProvider.toRealmName(token.getPreferredUsername());
-		}
-
 		if (!active) {
 			return themes;
+		}
+
+		AccessToken token = getTokenDataFromBearer(session.getContext().getRequestHeaders()).orNull();
+		if (token != null && token.getPreferredUsername() != null) {
+			realmForUser = CreateRealmListenerProvider.toRealmName(token.getPreferredUsername());
 		}
 
 		// Admin for master realm has access to all themes
