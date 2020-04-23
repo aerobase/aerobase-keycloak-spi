@@ -1,11 +1,11 @@
 package org.aerobase.theme;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.Vector;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import javax.ws.rs.core.HttpHeaders;
@@ -18,13 +18,12 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.representations.AccessToken;
 import org.keycloak.services.managers.RealmManager;
-import org.keycloak.theme.ExtendingThemeManagerFactory.ThemeKey;
 import org.keycloak.theme.Theme;
 
 import com.google.common.base.Optional;
 
-public class ExtendingThemeManager extends org.keycloak.theme.ExtendingThemeManager {
-	protected static final Logger logger = Logger.getLogger(ExtendingThemeManager.class);
+public class PrivateThemeProvider extends org.keycloak.theme.FolderThemeProvider {
+	protected static final Logger logger = Logger.getLogger(PrivateThemeProvider.class);
 
 	private static final String BEARER_SCHEME = "Bearer";
 
@@ -32,11 +31,11 @@ public class ExtendingThemeManager extends org.keycloak.theme.ExtendingThemeMana
 	private final boolean active;
 	private RealmModel masterRealm;
 	private static final Set<String> globalThemes = new HashSet<String>(
-			Arrays.asList(new String[] { "aerobase", "aerobase-bootstrap" }));
+			Arrays.asList(new String[] { "aerobase", "aerobase-bootstrap", "keycloak", "base" }));
 
-	public ExtendingThemeManager(KeycloakSession session, ConcurrentHashMap<ThemeKey, Theme> themeCache,
+	public PrivateThemeProvider(KeycloakSession session, File themesDir,
 			boolean active) {
-		super(session, themeCache);
+		super(themesDir);
 		this.session = session;
 		this.active = active;
 		this.masterRealm = new RealmManager(session).getKeycloakAdminstrationRealm();
