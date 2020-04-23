@@ -200,7 +200,6 @@ public class CreateRealmListenerProvider implements EventListenerProvider {
 		try {
 			try {
 				RealmManager manager = new RealmManager(session);
-				manager.setContextPath(session.getContext().getContextPath());
 
 				if (rep.getId() != null && manager.getRealm(rep.getId()) != null) {
 					ServicesLogger.LOGGER.realmExists(rep.getRealm(), from);
